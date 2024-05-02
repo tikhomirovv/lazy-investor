@@ -52,7 +52,7 @@ func InitApplication() (*application.Application, error) {
 		return nil, err
 	}
 	chartService := chart.NewChartService()
-	analyticsService := analytics.NewAnalyticsService()
+	analyticsService := analytics.NewAnalyticsService(zLogger)
 	applicationApplication := application.NewApplication(configConfig, zLogger, tinkoffService, chartService, analyticsService)
 	return applicationApplication, nil
 }
