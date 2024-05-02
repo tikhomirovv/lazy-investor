@@ -10,12 +10,14 @@ import (
 	"github.com/tikhomirovv/lazy-investor/internal/application"
 	"github.com/tikhomirovv/lazy-investor/internal/tinkoff"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
+	"os"
 )
 
 // Injectors from wire.go:
 
 func InitTinkoffService(logger logging.Logger) (*tinkoff.TinkoffService, error) {
-	tinkoffService := tinkoff.NewTinkoffService(logger)
+	config := providerTinkoffConfig()
+	tinkoffService := tinkoff.NewTinkoffService(config, logger)
 	return tinkoffService, nil
 }
 
@@ -27,4 +29,15 @@ func InitApplication() (*application.Application, error) {
 	}
 	applicationApplication := application.NewApplication(zLogger, tinkoffService)
 	return applicationApplication, nil
+}
+
+// wire.go:
+
+func providerTinkoffConfig() tinkoff.Config {
+	return tinkoff.Config{
+		AppName: os.Getenv("APP_NAME"),
+		Host:    os.Getenv("TINKOFF_API_HOST"),
+		Token:   os.Getenv("TINKOFF_API_TOKEN"),
+	}
+
 }
