@@ -1,8 +1,8 @@
 package tinkoff
 
 import (
+	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
 	"github.com/tikhomirovv/lazy-investor/internal/dto"
-	pb "github.com/tinkoff/invest-api-go-sdk/proto"
 )
 
 // Интервал свечей.

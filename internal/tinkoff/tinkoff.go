@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/russianinvestments/invest-api-go-sdk/investgo"
+	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
 	"github.com/tikhomirovv/lazy-investor/internal/dto"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
-	"github.com/tinkoff/invest-api-go-sdk/investgo"
-	pb "github.com/tinkoff/invest-api-go-sdk/proto"
 )
 
 type Config struct {
@@ -53,23 +53,25 @@ func (t *TinkoffService) Stop() {
 // Разово получить котировки по инструменту
 func (t *TinkoffService) GetCandles(instrumentId string, from time.Time, to time.Time, interval CandleInterval) ([]dto.Candle, error) {
 	marketDataService := t.client.NewMarketDataServiceClient()
-	candlesResp, err := marketDataService.GetCandles(instrumentId, pb.CandleInterval(interval), from, to)
+	candlesResp, err := marketDataService.GetCandles(instrumentId, pb.CandleInterval(interval), from, to, pb.GetCandlesRequest_CANDLE_SOURCE_UNSPECIFIED)
 	if err != nil {
 		return nil, err
 	}
 	return Map(candlesResp.GetCandles()), nil
 }
 
-func (t *TinkoffService) GetInstrumentIsinByQuery(q string) (string, error) {
+func (t *TinkoffService) GetInstrumentIdByQuery(q string) (string, error) {
 	instrumentService := t.client.NewInstrumentsServiceClient()
 	resp, err := instrumentService.FindInstrument(q)
 	if err != nil {
 		return "", err
 	}
 	instruments := resp.GetInstruments()
-	t.logger.Debug("Instr", "i", instruments)
-	if instruments != nil {
-		return instruments[0].Isin, nil
+	for _, i := range instruments {
+		if i.ApiTradeAvailableFlag {
+			t.logger.Debug("Instr", "i", i)
+			return i.Uid, nil
+		}
 	}
 	return "", nil
 }

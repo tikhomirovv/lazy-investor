@@ -1,0 +1,4 @@
+logLevel: "debug"
+instruments:
+  - isin: RU0009029540 # SBER
+  - isin: RU000A107UL4 # TCSG

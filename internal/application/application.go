@@ -8,18 +8,21 @@ import (
 	"github.com/tikhomirovv/lazy-investor/internal/analytics"
 	"github.com/tikhomirovv/lazy-investor/internal/chart"
 	"github.com/tikhomirovv/lazy-investor/internal/tinkoff"
+	"github.com/tikhomirovv/lazy-investor/pkg/config"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
 )
 
 type Application struct {
+	config    *config.Config
 	logger    logging.Logger
 	tinkoff   *tinkoff.TinkoffService
 	chart     *chart.ChartService
 	analytics *analytics.AnalyticsService
 }
 
-func NewApplication(logger logging.Logger, tinkoff *tinkoff.TinkoffService, chart *chart.ChartService, analytics *analytics.AnalyticsService) *Application {
+func NewApplication(config *config.Config, logger logging.Logger, tinkoff *tinkoff.TinkoffService, chart *chart.ChartService, analytics *analytics.AnalyticsService) *Application {
 	return &Application{
+		config:    config,
 		logger:    logger,
 		tinkoff:   tinkoff,
 		chart:     chart,
@@ -28,7 +31,14 @@ func NewApplication(logger logging.Logger, tinkoff *tinkoff.TinkoffService, char
 }
 
 func (a *Application) Run(ctx context.Context) {
-	instrumentId := "BBG004730N88"
+	for _, i := range a.config.Instruments {
+		go a.analyse(i)
+	}
+}
+func (a *Application) analyse(i config.InstConf) {
+	uid, _ := a.tinkoff.GetInstrumentIdByQuery(i.Isin)
+	// instrumentId := "BBG004730N88"
+	instrumentId := uid
 	from := time.Now().Add(-24 * 30 * 5 * time.Hour)
 	to := time.Now().Add(-6 * time.Hour)
 
@@ -42,7 +52,7 @@ func (a *Application) Run(ctx context.Context) {
 	tc := a.analytics.Analyze(candles)
 	a.logger.Debug("Trends", "trends", tc)
 
-	outFile, err := os.Create(".files/chart.png")
+	outFile, err := os.Create(".files/chart" + i.Isin + ".png")
 	if err != nil {
 		a.logger.Error("Generate chart error", "error", err)
 		return
