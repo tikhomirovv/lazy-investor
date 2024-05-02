@@ -21,8 +21,13 @@ func InitTinkoffService(logger logging.Logger) (*tinkoff.TinkoffService, error) 
 	return tinkoffService, nil
 }
 
-func InitApplication() (*application.Application, error) {
+func InitLogger() *logging.ZLogger {
 	zLogger := logging.NewLogger()
+	return zLogger
+}
+
+func InitApplication() (*application.Application, error) {
+	zLogger := InitLogger()
 	tinkoffService, err := InitTinkoffService(zLogger)
 	if err != nil {
 		return nil, err

@@ -1,6 +1,8 @@
 package application
 
 import (
+	"context"
+
 	"github.com/tikhomirovv/lazy-investor/internal/tinkoff"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
 )
@@ -17,6 +19,9 @@ func NewApplication(logger logging.Logger, tinkoff *tinkoff.TinkoffService) *App
 	}
 }
 
-func (a *Application) Run() {
+func (a *Application) Run(ctx context.Context) {
 	a.tinkoff.Test()
+}
+
+func (a *Application) Stop() {
 }

@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -16,62 +20,29 @@ func init() {
 }
 
 func main() {
-	// config := investgo.Config{AppName: appName, EndPoint: host, Token: token}
 
-	// ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-	// defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	// Application
+	logger := wire.InitLogger()
+	application, err := wire.InitApplication()
+	if err != nil {
+		panic(err)
+	}
 
-	// logger := &logger.Logger{}
+	go func() {
+		application.Run(ctx)
+	}()
 
-	// // создаем клиента для investAPI, он позволяет создавать нужные сервисы и уже
-	// // через них вызывать нужные методы
-	// client, err := investgo.NewClient(ctx, config, logger)
-	// if err != nil {
-	// 	logger.Errorf("client creating error %v", err.Error())
-	// }
-	// defer func() {
-	// 	logger.Infof("closing client connection")
-	// 	err := client.Stop()
-	// 	if err != nil {
-	// 		logger.Errorf("client shutdown error %v", err.Error())
-	// 	}
-	// }()
-
-	// // Разово получить котировки по инструменту
-	// // создаем клиента для сервиса маркетдаты
-	// MarketDataService := client.NewMarketDataServiceClient()
-	// from := time.Now().Add(-6 * time.Hour)
-	// to := time.Now()
-	// instrumentId := "BBG004730N88" // SBER
-	// candlesResp, err := MarketDataService.GetCandles(instrumentId, pb.CandleInterval_CANDLE_INTERVAL_15_MIN, from, to)
-	// if err != nil {
-	// 	logger.Errorf(err.Error())
-	// } else {
-	// 	candles := candlesResp.GetCandles()
-	// 	for i, candle := range candles {
-	// 		fmt.Printf("candle number %d, high: %v, open: %v, close: %v, low:%v, volume: %v\n", i, candle.GetHigh().ToFloat(), candle.GetOpen().ToFloat(), candle.GetClose().ToFloat(), candle.GetLow().ToFloat(), candle.GetVolume())
-	// 	}
-	// }
-
-	// // минутные свечи TCSG за последние двое суток
-	// candles, err := MarketDataService.GetHistoricCandles(&investgo.GetHistoricCandlesRequest{
-	// 	Instrument: instrumentId,
-	// 	Interval:   pb.CandleInterval_CANDLE_INTERVAL_1_MIN,
-	// 	From:       time.Date(2023, time.June, 2, 10, 0, 0, 0, time.UTC),
-	// 	To:         time.Date(2023, time.June, 4, 0, 0, 0, 0, time.UTC),
-	// 	File:       true,
-	// 	FileName:   "sber_june_2_2023",
-	// })
-	// if err != nil {
-	// 	logger.Errorf(err.Error())
-	// } else {
-	// 	for i, candle := range candles {
-	// 		fmt.Printf("candle %v open = %v\n", i, candle.GetOpen().ToFloat())
-	// 	}
-	// }
-
-	application, _ := wire.InitApplication()
-	application.Run()
-
-	time.Sleep(2 * time.Second)
+	// Gracefull shutdown
+	stopSignal := make(chan os.Signal, 1)
+	signal.Notify(stopSignal, syscall.SIGTERM, syscall.SIGINT)
+	logger.Info("Application started")
+	<-stopSignal
+	logger.Info("Shutting down gracefully...")
+	cancel()
+	time.Sleep(1 * time.Second)
+	// Завершение работы
+	application.Stop()
+	logger.Info("Shutdown finished")
+	os.Exit(0)
 }

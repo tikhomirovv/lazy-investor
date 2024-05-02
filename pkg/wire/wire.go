@@ -29,9 +29,16 @@ func InitTinkoffService(logger logging.Logger) (*tinkoff.TinkoffService, error) 
 	return &tinkoff.TinkoffService{}, nil
 }
 
-func InitApplication() (*application.Application, error) {
+func InitLogger() *logging.ZLogger {
 	wire.Build(
 		logging.NewLogger,
+	)
+	return &logging.ZLogger{}
+}
+
+func InitApplication() (*application.Application, error) {
+	wire.Build(
+		InitLogger,
 		wire.Bind(new(logging.Logger), new(*logging.ZLogger)),
 		InitTinkoffService,
 		application.NewApplication,
