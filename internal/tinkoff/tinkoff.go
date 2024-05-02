@@ -51,7 +51,7 @@ func (t *TinkoffService) Stop() {
 }
 
 // Разово получить котировки по инструменту
-func (t *TinkoffService) GetCandles(instrumentId string, from time.Time, to time.Time, interval CandleInterval) ([]*dto.Candle, error) {
+func (t *TinkoffService) GetCandles(instrumentId string, from time.Time, to time.Time, interval CandleInterval) ([]dto.Candle, error) {
 	marketDataService := t.client.NewMarketDataServiceClient()
 	candlesResp, err := marketDataService.GetCandles(instrumentId, pb.CandleInterval(interval), from, to)
 	if err != nil {
@@ -60,22 +60,16 @@ func (t *TinkoffService) GetCandles(instrumentId string, from time.Time, to time
 	return Map(candlesResp.GetCandles()), nil
 }
 
-func te() {
-
-	// // минутные свечи TCSG за последние двое суток
-	// candles, err := MarketDataService.GetHistoricCandles(&investgo.GetHistoricCandlesRequest{
-	// 	Instrument: instrumentId,
-	// 	Interval:   pb.CandleInterval_CANDLE_INTERVAL_1_MIN,
-	// 	From:       time.Date(2023, time.June, 2, 10, 0, 0, 0, time.UTC),
-	// 	To:         time.Date(2023, time.June, 4, 0, 0, 0, 0, time.UTC),
-	// 	File:       true,
-	// 	FileName:   "sber_june_2_2023",
-	// })
-	// if err != nil {
-	// 	logger.Errorf(err.Error())
-	// } else {
-	// 	for i, candle := range candles {
-	// 		fmt.Printf("candle %v open = %v\n", i, candle.GetOpen().ToFloat())
-	// 	}
-	// }
+func (t *TinkoffService) GetInstrumentIsinByQuery(q string) (string, error) {
+	instrumentService := t.client.NewInstrumentsServiceClient()
+	resp, err := instrumentService.FindInstrument(q)
+	if err != nil {
+		return "", err
+	}
+	instruments := resp.GetInstruments()
+	t.logger.Debug("Instr", "i", instruments)
+	if instruments != nil {
+		return instruments[0].Isin, nil
+	}
+	return "", nil
 }

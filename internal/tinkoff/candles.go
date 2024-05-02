@@ -25,10 +25,10 @@ const (
 	CandleIntervalMonth       CandleInterval = 13 //1 месяц.
 )
 
-func Map(candles []*pb.HistoricCandle) []*dto.Candle {
-	var result []*dto.Candle
+func Map(candles []*pb.HistoricCandle) []dto.Candle {
+	var result []dto.Candle
 	for _, c := range candles {
-		result = append(result, &dto.Candle{
+		result = append(result, dto.Candle{
 			Open:       c.Open.ToFloat(),
 			High:       c.High.ToFloat(),
 			Low:        c.Low.ToFloat(),

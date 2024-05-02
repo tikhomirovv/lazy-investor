@@ -16,12 +16,19 @@ func NewChartService() *ChartService {
 }
 
 // https://github.com/wcharczuk/go-chart/blob/main/examples/stock_analysis/main.go
-func (cs *ChartService) Generate(candles []*dto.Candle, w io.Writer) error {
+func (cs *ChartService) Generate(candles []dto.Candle, trends []dto.TrendChange, w io.Writer) error {
 	var dates []time.Time
 	var values []float64
 	for _, c := range candles {
 		dates = append(dates, c.Time)
 		values = append(values, c.Close)
+	}
+
+	var datesTrends []time.Time
+	var valuesTrends []float64
+	for _, t := range trends {
+		datesTrends = append(datesTrends, t.Candle.Time)
+		valuesTrends = append(valuesTrends, t.Candle.Close)
 	}
 	priceSeries := gc.TimeSeries{
 		Name: "SPY",
@@ -31,6 +38,17 @@ func (cs *ChartService) Generate(candles []*dto.Candle, w io.Writer) error {
 		},
 		XValues: dates,
 		YValues: values,
+	}
+	trendSeries := gc.TimeSeries{
+		Name: "Trends",
+		Style: gc.Style{
+			StrokeWidth: gc.Disabled,
+			DotWidth:    5,
+			Show:        true,
+			// StrokeColor: gc.GetDefaultColor(1),
+		},
+		XValues: datesTrends,
+		YValues: valuesTrends,
 	}
 	smaSeries := gc.SMASeries{
 		Name: "SPY - SMA",
@@ -72,6 +90,7 @@ func (cs *ChartService) Generate(candles []*dto.Candle, w io.Writer) error {
 			bbSeries,
 			priceSeries,
 			smaSeries,
+			trendSeries,
 		},
 	}
 	return graph.Render(gc.PNG, w)

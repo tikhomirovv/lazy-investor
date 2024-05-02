@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/google/wire"
+	"github.com/tikhomirovv/lazy-investor/internal/analytics"
 	"github.com/tikhomirovv/lazy-investor/internal/application"
 	"github.com/tikhomirovv/lazy-investor/internal/chart"
 	"github.com/tikhomirovv/lazy-investor/internal/tinkoff"
@@ -43,6 +44,7 @@ func InitApplication() (*application.Application, error) {
 		wire.Bind(new(logging.Logger), new(*logging.ZLogger)),
 		InitTinkoffService,
 		chart.NewChartService,
+		analytics.NewAnalyticsService,
 		application.NewApplication,
 	)
 	return &application.Application{}, nil
