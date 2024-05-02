@@ -1,7 +1,7 @@
 package chart
 
 import (
-	"os"
+	"io"
 	"time"
 
 	"github.com/tikhomirovv/lazy-investor/internal/dto"
@@ -16,7 +16,7 @@ func NewChartService() *ChartService {
 }
 
 // https://github.com/wcharczuk/go-chart/blob/main/examples/stock_analysis/main.go
-func (cs *ChartService) Generate(candles []*dto.Candle) error {
+func (cs *ChartService) Generate(candles []*dto.Candle, w io.Writer) error {
 	var dates []time.Time
 	var values []float64
 	for _, c := range candles {
@@ -74,13 +74,7 @@ func (cs *ChartService) Generate(candles []*dto.Candle) error {
 			smaSeries,
 		},
 	}
-
-	outFile, err := os.Create(".files/chart.png")
-	if err != nil {
-		return err
-	}
-	defer outFile.Close()
-	return graph.Render(gc.PNG, outFile)
+	return graph.Render(gc.PNG, w)
 }
 
 func findMinMax(slice []float64) (min, max float64) {
