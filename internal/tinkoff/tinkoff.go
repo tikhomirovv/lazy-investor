@@ -1,7 +1,14 @@
 package tinkoff
 
 import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/tikhomirovv/lazy-investor/internal/dto"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
+	"github.com/tinkoff/invest-api-go-sdk/investgo"
+	pb "github.com/tinkoff/invest-api-go-sdk/proto"
 )
 
 type Config struct {
@@ -13,58 +20,47 @@ type Config struct {
 type TinkoffService struct {
 	config Config
 	logger logging.Logger
+	client *investgo.Client
 }
 
-func NewTinkoffService(config Config, logger logging.Logger) *TinkoffService {
+func NewTinkoffService(config Config, logger logging.Logger) (*TinkoffService, error) {
+	// создаем клиента для investAPI, он позволяет создавать нужные сервисы и уже
+	// через них вызывать нужные методы
+	ctx := context.Background()
+	client, err := investgo.NewClient(ctx, investgo.Config{
+		AppName:  config.AppName,
+		EndPoint: config.Host,
+		Token:    config.Token,
+	}, logger)
+	if err != nil {
+		return nil, fmt.Errorf("client creating error %w", err)
+	}
 	return &TinkoffService{
 		config: config,
 		logger: logger,
+		client: client,
+	}, nil
+}
+
+func (t *TinkoffService) Stop() {
+	t.logger.Info("Closing client connection...")
+	err := t.client.Stop()
+	if err != nil {
+		t.logger.Error("Client shutdown error", "error", err)
 	}
 }
 
-func (t *TinkoffService) Test() {
-	t.logger.Debug("Tinkoff test", "app", t.config.AppName)
-	// fmt.Println("Tinkoff test")
+// Разово получить котировки по инструменту
+func (t *TinkoffService) GetCandles(instrumentId string, from time.Time, to time.Time, interval CandleInterval) ([]*dto.Candle, error) {
+	marketDataService := t.client.NewMarketDataServiceClient()
+	candlesResp, err := marketDataService.GetCandles(instrumentId, pb.CandleInterval(interval), from, to)
+	if err != nil {
+		return nil, err
+	}
+	return Map(candlesResp.GetCandles()), nil
 }
 
 func te() {
-
-	// config := investgo.Config{AppName: appName, EndPoint: host, Token: token}
-
-	// ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-	// defer cancel()
-
-	// logger := &logger.Logger{}
-
-	// // создаем клиента для investAPI, он позволяет создавать нужные сервисы и уже
-	// // через них вызывать нужные методы
-	// client, err := investgo.NewClient(ctx, config, logger)
-	// if err != nil {
-	// 	logger.Errorf("client creating error %v", err.Error())
-	// }
-	// defer func() {
-	// 	logger.Infof("closing client connection")
-	// 	err := client.Stop()
-	// 	if err != nil {
-	// 		logger.Errorf("client shutdown error %v", err.Error())
-	// 	}
-	// }()
-
-	// // Разово получить котировки по инструменту
-	// // создаем клиента для сервиса маркетдаты
-	// MarketDataService := client.NewMarketDataServiceClient()
-	// from := time.Now().Add(-6 * time.Hour)
-	// to := time.Now()
-	// instrumentId := "BBG004730N88" // SBER
-	// candlesResp, err := MarketDataService.GetCandles(instrumentId, pb.CandleInterval_CANDLE_INTERVAL_15_MIN, from, to)
-	// if err != nil {
-	// 	logger.Errorf(err.Error())
-	// } else {
-	// 	candles := candlesResp.GetCandles()
-	// 	for i, candle := range candles {
-	// 		fmt.Printf("candle number %d, high: %v, open: %v, close: %v, low:%v, volume: %v\n", i, candle.GetHigh().ToFloat(), candle.GetOpen().ToFloat(), candle.GetClose().ToFloat(), candle.GetLow().ToFloat(), candle.GetVolume())
-	// 	}
-	// }
 
 	// // минутные свечи TCSG за последние двое суток
 	// candles, err := MarketDataService.GetHistoricCandles(&investgo.GetHistoricCandlesRequest{

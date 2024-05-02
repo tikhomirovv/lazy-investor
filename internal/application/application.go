@@ -2,7 +2,9 @@ package application
 
 import (
 	"context"
+	"time"
 
+	"github.com/tikhomirovv/lazy-investor/internal/chart"
 	"github.com/tikhomirovv/lazy-investor/internal/tinkoff"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
 )
@@ -10,18 +12,35 @@ import (
 type Application struct {
 	logger  logging.Logger
 	tinkoff *tinkoff.TinkoffService
+	chart   *chart.ChartService
 }
 
-func NewApplication(logger logging.Logger, tinkoff *tinkoff.TinkoffService) *Application {
+func NewApplication(logger logging.Logger, tinkoff *tinkoff.TinkoffService, chart *chart.ChartService) *Application {
 	return &Application{
 		logger:  logger,
 		tinkoff: tinkoff,
+		chart:   chart,
 	}
 }
 
 func (a *Application) Run(ctx context.Context) {
-	a.tinkoff.Test()
+	instrumentId := "BBG004730N88"
+	from := time.Now().Add(-24 * 3 * time.Hour)
+	to := time.Now().Add(-6 * time.Hour)
+
+	candles, err := a.tinkoff.GetCandles(instrumentId, from, to, tinkoff.CANDLE_INTERVAL_HOUR)
+	if err != nil {
+		a.logger.Error("GetCandles error", "error", err)
+		return
+	}
+	a.logger.Debug("Candles", "i", instrumentId, "candles", candles)
+
+	err = a.chart.Generate(candles)
+	if err != nil {
+		a.logger.Error("Generate chart error", "error", err)
+	}
 }
 
 func (a *Application) Stop() {
+	a.tinkoff.Stop()
 }

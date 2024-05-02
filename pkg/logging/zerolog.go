@@ -38,11 +38,19 @@ func (z ZLogger) Info(msg string, args ...interface{}) {
 	z.logger.Info().Timestamp().Fields(args).Msg(msg)
 }
 
+func (z ZLogger) Infof(msg string, args ...interface{}) {
+	z.logger.Info().Timestamp().Fields(args).Msg(msg)
+}
+
 func (z ZLogger) Warn(msg string, args ...interface{}) {
 	z.logger.Warn().Timestamp().Fields(args).Msg(msg)
 }
 
 func (z ZLogger) Error(msg string, args ...interface{}) {
+	z.logger.Error().Timestamp().Fields(args).Msg(msg)
+}
+
+func (z ZLogger) Errorf(msg string, args ...interface{}) {
 	z.logger.Error().Timestamp().Fields(args).Msg(msg)
 }
 

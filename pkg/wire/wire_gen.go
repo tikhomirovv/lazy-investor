@@ -8,6 +8,7 @@ package wire
 
 import (
 	"github.com/tikhomirovv/lazy-investor/internal/application"
+	"github.com/tikhomirovv/lazy-investor/internal/chart"
 	"github.com/tikhomirovv/lazy-investor/internal/tinkoff"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
 	"os"
@@ -17,7 +18,10 @@ import (
 
 func InitTinkoffService(logger logging.Logger) (*tinkoff.TinkoffService, error) {
 	config := providerTinkoffConfig()
-	tinkoffService := tinkoff.NewTinkoffService(config, logger)
+	tinkoffService, err := tinkoff.NewTinkoffService(config, logger)
+	if err != nil {
+		return nil, err
+	}
 	return tinkoffService, nil
 }
 
@@ -32,7 +36,8 @@ func InitApplication() (*application.Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	applicationApplication := application.NewApplication(zLogger, tinkoffService)
+	chartService := chart.NewChartService()
+	applicationApplication := application.NewApplication(zLogger, tinkoffService, chartService)
 	return applicationApplication, nil
 }
 
