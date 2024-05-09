@@ -2,6 +2,7 @@ package chart
 
 import (
 	"io"
+	"math/rand"
 	"time"
 
 	"github.com/tikhomirovv/lazy-investor/internal/dto"
@@ -15,22 +16,25 @@ func NewChartService() *ChartService {
 	return &ChartService{}
 }
 
+type ChartValues struct {
+	Title   string
+	Candles []dto.Candle
+	Trends  []dto.TrendChange
+	EMAs    []dto.EMA
+}
+
 // https://github.com/wcharczuk/go-chart/blob/main/examples/stock_analysis/main.go
-func (cs *ChartService) Generate(candles []dto.Candle, trends []dto.TrendChange, shortMA []float64, longMA []float64, w io.Writer) error {
+func (cs *ChartService) Generate(chart *ChartValues, w io.Writer) error {
 	var dates []time.Time
 	var values []float64
-	var valuesShortMA []float64
-	var valuesLongMA []float64
-	for i, c := range candles {
+	for _, c := range chart.Candles {
 		dates = append(dates, c.Time)
 		values = append(values, c.Close)
-		valuesShortMA = append(valuesShortMA, shortMA[i])
-		valuesLongMA = append(valuesLongMA, longMA[i])
 	}
 
 	var datesTrends []time.Time
 	var valuesTrends []float64
-	for _, t := range trends {
+	for _, t := range chart.Trends {
 		datesTrends = append(datesTrends, t.Candle.Time)
 		valuesTrends = append(valuesTrends, t.Candle.Close)
 	}
@@ -42,25 +46,6 @@ func (cs *ChartService) Generate(candles []dto.Candle, trends []dto.TrendChange,
 		},
 		XValues: dates,
 		YValues: values,
-	}
-
-	shortMASeries := gc.TimeSeries{
-		Name: "ShortMA",
-		Style: gc.Style{
-			Show:        true,
-			StrokeColor: gc.GetDefaultColor(1),
-		},
-		XValues: dates,
-		YValues: valuesShortMA,
-	}
-	longMASeries := gc.TimeSeries{
-		Name: "LongMA",
-		Style: gc.Style{
-			Show:        true,
-			StrokeColor: gc.GetDefaultColor(2),
-		},
-		XValues: dates,
-		YValues: valuesLongMA,
 	}
 
 	trendSeries := gc.TimeSeries{
@@ -93,8 +78,22 @@ func (cs *ChartService) Generate(candles []dto.Candle, trends []dto.TrendChange,
 		InnerSeries: priceSeries,
 	}
 
+	series := []gc.Series{bbSeries,
+		priceSeries,
+		smaSeries,
+		trendSeries,
+	}
+
+	for _, ema := range chart.EMAs {
+		series = append(series, getEMATimeSeries(ema.Name, ema.Dates, ema.Values))
+	}
+
 	min, max := findMinMax(values)
 	graph := gc.Chart{
+		Title: chart.Title,
+		TitleStyle: gc.Style{
+			Show: true,
+		},
 		XAxis: gc.XAxis{
 			Style: gc.Style{
 				Show: true,
@@ -110,14 +109,11 @@ func (cs *ChartService) Generate(candles []dto.Candle, trends []dto.TrendChange,
 				Min: min - 1,
 			},
 		},
-		Series: []gc.Series{
-			bbSeries,
-			priceSeries,
-			smaSeries,
-			trendSeries,
-			shortMASeries,
-			longMASeries,
-		},
+		Series: series,
+	}
+
+	graph.Elements = []gc.Renderable{
+		gc.Legend(&graph),
 	}
 	return graph.Render(gc.PNG, w)
 }
@@ -136,4 +132,17 @@ func findMinMax(slice []float64) (min, max float64) {
 		}
 	}
 	return min, max
+}
+
+func getEMATimeSeries(name string, dates []time.Time, values []float64) gc.TimeSeries {
+	colorIndex := rand.Intn(4)
+	return gc.TimeSeries{
+		Name: name,
+		Style: gc.Style{
+			Show:        true,
+			StrokeColor: gc.GetDefaultColor(colorIndex),
+		},
+		XValues: dates,
+		YValues: values,
+	}
 }

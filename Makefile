@@ -1,4 +1,4 @@
-analyst:
+run:
 	go run ./cmd/analyst/main.go
 
 wire:

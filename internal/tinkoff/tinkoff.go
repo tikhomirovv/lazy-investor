@@ -60,18 +60,22 @@ func (t *TinkoffService) GetCandles(instrumentId string, from time.Time, to time
 	return Map(candlesResp.GetCandles()), nil
 }
 
-func (t *TinkoffService) GetInstrumentIdByQuery(q string) (string, error) {
+func (t *TinkoffService) GetInstrumentIdByQuery(q string) (*dto.Instrument, error) {
 	instrumentService := t.client.NewInstrumentsServiceClient()
 	resp, err := instrumentService.FindInstrument(q)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	instruments := resp.GetInstruments()
 	for _, i := range instruments {
 		if i.ApiTradeAvailableFlag {
 			t.logger.Debug("Instr", "i", i)
-			return i.Uid, nil
+			return &dto.Instrument{
+				Uid:  i.Uid,
+				Name: i.Name,
+				Isin: i.Isin,
+			}, nil
 		}
 	}
-	return "", nil
+	return nil, nil
 }

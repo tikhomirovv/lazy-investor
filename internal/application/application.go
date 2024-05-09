@@ -37,9 +37,8 @@ func (a *Application) Run(ctx context.Context) {
 	}
 }
 func (a *Application) analyse(i config.InstConf) {
-	uid, _ := a.tinkoff.GetInstrumentIdByQuery(i.Isin)
+	instrument, _ := a.tinkoff.GetInstrumentIdByQuery(i.Isin)
 	// instrumentId := "BBG004730N88"
-	instrumentId := uid
 	// from := time.Now().Add(-24 * 30 * 12 * time.Hour)
 	// to := time.Now().Add(-6 * time.Hour)
 
@@ -56,7 +55,7 @@ func (a *Application) analyse(i config.InstConf) {
 		}}
 
 	for _, date := range dates {
-		ccc, err := a.tinkoff.GetCandles(instrumentId, date[0], date[1], tinkoff.CandleIntervalDay)
+		ccc, err := a.tinkoff.GetCandles(instrument.Uid, date[0], date[1], tinkoff.CandleIntervalDay)
 		if err != nil {
 			a.logger.Error("GetCandles error", "error", err)
 			return
@@ -65,15 +64,28 @@ func (a *Application) analyse(i config.InstConf) {
 		candles = append(candles, ccc...)
 	}
 
-	currentTrend, tc, l, s := a.analytics.AnalyzeTrendByMovingAverage(candles, 30, 80)
-	a.logger.Debug("Trends", "curr", currentTrend, "trends", tc)
+	// currentTrend, tc, l, s := a.analytics.AnalyzeTrendByMovingAverage(candles, 30, 80)
+	// currentTrend, tc, l := a.analytics.Analyze(candles, 100)
+	// a.logger.Debug("Trends", "curr", currentTrend, "trends", tc)
 	outFile, err := os.Create(".files/chart" + i.Isin + ".png")
 	if err != nil {
 		a.logger.Error("Generate chart error", "error", err)
 		return
 	}
 	defer outFile.Close()
-	err = a.chart.Generate(candles, tc, l, s, outFile)
+
+	chart := &chart.ChartValues{
+		Title:   instrument.Name,
+		Candles: candles,
+		// Trends: tc,
+		EMAs: []dto.EMA{
+			analytics.CalculateMovingAverage("EMA 10", candles, 10),
+			analytics.CalculateMovingAverage("EMA 50", candles, 50),
+			analytics.CalculateMovingAverage("EMA 100", candles, 100),
+			analytics.CalculateMovingAverage("EMA 200", candles, 200),
+		},
+	}
+	err = a.chart.Generate(chart, outFile)
 	if err != nil {
 		a.logger.Error("Generate chart error", "error", err)
 	}
