@@ -7,7 +7,6 @@
 package wire
 
 import (
-	"github.com/tikhomirovv/lazy-investor/internal/analytics"
 	"github.com/tikhomirovv/lazy-investor/internal/application"
 	"github.com/tikhomirovv/lazy-investor/internal/chart"
 	"github.com/tikhomirovv/lazy-investor/internal/tinkoff"
@@ -52,8 +51,7 @@ func InitApplication() (*application.Application, error) {
 		return nil, err
 	}
 	chartService := chart.NewChartService()
-	analyticsService := analytics.NewAnalyticsService(zLogger)
-	applicationApplication := application.NewApplication(configConfig, zLogger, tinkoffService, chartService, analyticsService)
+	applicationApplication := application.NewApplication(configConfig, zLogger, tinkoffService, chartService)
 	return applicationApplication, nil
 }
 

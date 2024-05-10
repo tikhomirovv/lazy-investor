@@ -1,6 +1,7 @@
 package chart
 
 import (
+	"fmt"
 	"io"
 	"math/rand"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/tikhomirovv/lazy-investor/internal/dto"
 	gc "github.com/wcharczuk/go-chart"
 	"github.com/wcharczuk/go-chart/drawing"
+	util "github.com/wcharczuk/go-chart/util"
 )
 
 type ChartService struct{}
@@ -21,53 +23,23 @@ type ChartValues struct {
 	Candles []dto.Candle
 	Trends  []dto.TrendChange
 	EMAs    []dto.EMA
+	Swings  []dto.Swing
 }
 
 // https://github.com/wcharczuk/go-chart/blob/main/examples/stock_analysis/main.go
 func (cs *ChartService) Generate(chart *ChartValues, w io.Writer) error {
-	var dates []time.Time
-	var values []float64
-	for _, c := range chart.Candles {
-		dates = append(dates, c.Time)
-		values = append(values, c.Close)
-	}
 
-	var datesTrends []time.Time
-	var valuesTrends []float64
-	for _, t := range chart.Trends {
-		datesTrends = append(datesTrends, t.Candle.Time)
-		valuesTrends = append(valuesTrends, t.Candle.Close)
-	}
-	priceSeries := gc.TimeSeries{
-		Name: "SPY",
-		Style: gc.Style{
-			Show:        true,
-			StrokeColor: gc.GetDefaultColor(0),
-		},
-		XValues: dates,
-		YValues: values,
-	}
+	close, high, low := getCandlesPrices(chart.Candles)
 
-	trendSeries := gc.TimeSeries{
-		Name: "Trends",
-		Style: gc.Style{
-			StrokeWidth: gc.Disabled,
-			DotWidth:    5,
-			Show:        true,
-			// StrokeColor: gc.GetDefaultColor(1),
-		},
-		XValues: datesTrends,
-		YValues: valuesTrends,
-	}
-	smaSeries := gc.SMASeries{
-		Name: "SPY - SMA",
-		Style: gc.Style{
-			Show:            true,
-			StrokeColor:     drawing.ColorRed,
-			StrokeDashArray: []float64{5.0, 5.0},
-		},
-		InnerSeries: priceSeries,
-	}
+	// smaSeries := gc.SMASeries{
+	// 	Name: "SPY - SMA",
+	// 	Style: gc.Style{
+	// 		Show:            true,
+	// 		StrokeColor:     drawing.ColorRed,
+	// 		StrokeDashArray: []float64{5.0, 5.0},
+	// 	},
+	// 	InnerSeries: close,
+	// }
 	bbSeries := &gc.BollingerBandsSeries{
 		Name: "SPY - Bol. Bands",
 		Style: gc.Style{
@@ -75,20 +47,24 @@ func (cs *ChartService) Generate(chart *ChartValues, w io.Writer) error {
 			StrokeColor: drawing.ColorFromHex("efefef"),
 			FillColor:   drawing.ColorFromHex("efefef").WithAlpha(64),
 		},
-		InnerSeries: priceSeries,
+		InnerSeries: close,
 	}
 
+	swingsHigh, swingsLow := getSwingsTimeSeries(chart.Swings)
+	trendsUp, trendsDown, trendsNo, _ := getTrendsTimeSeries(chart.Trends)
 	series := []gc.Series{bbSeries,
-		priceSeries,
-		smaSeries,
-		trendSeries,
+		close, high, low,
+		// smaSeries,
+		trendsUp, trendsDown, trendsNo,
+		swingsHigh, swingsLow,
+		// trendAnnotations,
 	}
 
 	for _, ema := range chart.EMAs {
-		series = append(series, getEMATimeSeries(ema.Name, ema.Dates, ema.Values))
+		series = append(series, getEMATimeSeries(ema))
 	}
 
-	min, max := findMinMax(values)
+	min, max := findMinMax(close.YValues)
 	graph := gc.Chart{
 		Title: chart.Title,
 		TitleStyle: gc.Style{
@@ -134,15 +110,154 @@ func findMinMax(slice []float64) (min, max float64) {
 	return min, max
 }
 
-func getEMATimeSeries(name string, dates []time.Time, values []float64) gc.TimeSeries {
+func getCandlesPrices(candles []dto.Candle) (close gc.TimeSeries, high gc.TimeSeries, low gc.TimeSeries) {
+	var dates []time.Time
+	var closeValues []float64
+	var highValues []float64
+	var lowValues []float64
+	for _, c := range candles {
+		dates = append(dates, c.Time)
+		closeValues = append(closeValues, c.Close)
+		highValues = append(highValues, c.High)
+		lowValues = append(lowValues, c.Low)
+	}
+	close = gc.TimeSeries{
+		Name: "Price Close",
+		Style: gc.Style{
+			Show:        true,
+			StrokeColor: gc.GetDefaultColor(0),
+		},
+		XValues: dates,
+		YValues: closeValues,
+	}
+	high = gc.TimeSeries{
+		Name: "Price High",
+		Style: gc.Style{
+			Show:            true,
+			StrokeDashArray: []float64{5.0, 5.0},
+			StrokeColor:     gc.GetDefaultColor(1),
+		},
+		XValues: dates,
+		YValues: highValues,
+	}
+	low = gc.TimeSeries{
+		Name: "Price Low",
+		Style: gc.Style{
+			Show:            true,
+			StrokeDashArray: []float64{5.0, 5.0},
+			StrokeColor:     gc.GetDefaultColor(2),
+		},
+		XValues: dates,
+		YValues: lowValues,
+	}
+	return
+}
+
+func getEMATimeSeries(ema dto.EMA) gc.TimeSeries {
 	colorIndex := rand.Intn(4)
 	return gc.TimeSeries{
-		Name: name,
+		Name: ema.Name,
 		Style: gc.Style{
 			Show:        true,
 			StrokeColor: gc.GetDefaultColor(colorIndex),
 		},
-		XValues: dates,
-		YValues: values,
+		XValues: ema.Dates,
+		YValues: ema.Values,
 	}
+}
+
+func getTrendsTimeSeries(trends []dto.TrendChange) (up gc.TimeSeries, down gc.TimeSeries, no gc.TimeSeries, annotations gc.AnnotationSeries) {
+	var upDates, downDates, noDates []time.Time
+	var upValues, downValues, noValues []float64
+	var annotationValues []gc.Value2
+	for _, t := range trends {
+		annotationValues = append(annotationValues, gc.Value2{
+			XValue: util.Time.ToFloat64(t.Swing.Candle.Time),
+			YValue: t.Swing.GetValue(),
+			Label:  fmt.Sprintf("Trend: %s", t.Trend.String()),
+		})
+		if t.Trend == dto.TrendUp {
+			upDates = append(upDates, t.Swing.Candle.Time)
+			upValues = append(upValues, t.Swing.GetValue())
+		} else if t.Trend == dto.TrendDown {
+			downDates = append(downDates, t.Swing.Candle.Time)
+			downValues = append(downValues, t.Swing.GetValue())
+		} else {
+			noDates = append(noDates, t.Swing.Candle.Time)
+			noValues = append(noValues, t.Swing.GetValue())
+		}
+	}
+	up = gc.TimeSeries{
+		Name: "Trends Up",
+		Style: gc.Style{
+			StrokeWidth: gc.Disabled,
+			DotWidth:    7,
+			DotColor:    gc.GetAlternateColor(1),
+			Show:        true,
+		},
+		XValues: upDates,
+		YValues: upValues,
+	}
+	down = gc.TimeSeries{
+		Name: "Trends Down",
+		Style: gc.Style{
+			StrokeWidth: gc.Disabled,
+			DotWidth:    7,
+			DotColor:    gc.GetDefaultColor(2),
+			Show:        true,
+		},
+		XValues: downDates,
+		YValues: downValues,
+	}
+	no = gc.TimeSeries{
+		Name: "Trends No",
+		Style: gc.Style{
+			StrokeWidth: gc.Disabled,
+			DotWidth:    7,
+			DotColor:    gc.GetAlternateColor(3),
+			Show:        true,
+		},
+		XValues: noDates,
+		YValues: noValues,
+	}
+	annotations = gc.AnnotationSeries{
+		Annotations: annotationValues,
+	}
+	return
+}
+
+func getSwingsTimeSeries(swings []dto.Swing) (gc.TimeSeries, gc.TimeSeries) {
+	var hDates, lDates []time.Time
+	var hValues, lValues []float64
+	for _, s := range swings {
+		if s.Type == dto.SwingHigh {
+			hDates = append(hDates, s.Candle.Time)
+			hValues = append(hValues, s.Candle.High)
+		} else {
+			lDates = append(lDates, s.Candle.Time)
+			lValues = append(lValues, s.Candle.Low)
+		}
+	}
+	return gc.TimeSeries{
+			Name: "SwingsHigh",
+			Style: gc.Style{
+				StrokeWidth: gc.Disabled,
+				DotWidth:    2,
+				DotColor:    gc.GetDefaultColor(1),
+				Show:        true,
+			},
+			XValues: hDates,
+			YValues: hValues,
+		},
+		gc.TimeSeries{
+			Name: "SwingsLow",
+			Style: gc.Style{
+				StrokeWidth: gc.Disabled,
+				DotWidth:    2,
+				DotColor:    gc.GetDefaultColor(2),
+				Show:        true,
+			},
+			XValues: lDates,
+			YValues: lValues,
+		}
 }

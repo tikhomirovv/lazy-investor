@@ -1,16 +1,15 @@
 package analytics
 
 import (
-	"time"
-
 	"github.com/tikhomirovv/lazy-investor/internal/dto"
 )
 
 // Функция для поиска swing highs и swing lows
-func FindSwings(candles []dto.Candle, n int) ([]time.Time, []time.Time) {
-	var swingHighs []time.Time
-	var swingLows []time.Time
-
+// `n“ определяет количество свечей с каждой стороны от текущей свечи,
+// которые будут использоваться для определения,
+// является ли текущая свеча swing high или swing low
+func FindSwings(candles []dto.Candle, n int) []dto.Swing {
+	var swings []dto.Swing
 	for i := n; i < len(candles)-n; i++ {
 		isSwingHigh := true
 		isSwingLow := true
@@ -24,12 +23,19 @@ func FindSwings(candles []dto.Candle, n int) ([]time.Time, []time.Time) {
 				}
 			}
 		}
-		if isSwingHigh {
-			swingHighs = append(swingHighs, candles[i].Time)
-		}
-		if isSwingLow {
-			swingLows = append(swingLows, candles[i].Time)
+		if isSwingHigh || isSwingLow {
+			swing := dto.Swing{
+				Candle: candles[i],
+				Period: n,
+			}
+			if isSwingHigh {
+				swing.Type = dto.SwingHigh
+			}
+			if isSwingLow {
+				swing.Type = dto.SwingLow
+			}
+			swings = append(swings, swing)
 		}
 	}
-	return swingHighs, swingLows
+	return swings
 }

@@ -1,14 +1,26 @@
 package dto
 
-type TrendType string
+type TrendType int
 
 const (
-	Uptrend   TrendType = "Uptrend"
-	Downtrend TrendType = "Downtrend"
-	NoTrend   TrendType = "NoTrend"
+	TrendUp TrendType = iota
+	TrendDown
+	TrendNo // боковик, консолидация
 )
 
 type TrendChange struct {
-	Candle   Candle
-	NewTrend TrendType
+	// Candle Candle
+	Swing Swing
+	Trend TrendType
+}
+
+func (tt TrendType) String() string {
+	switch tt {
+	case TrendUp:
+		return "Up"
+	case TrendDown:
+		return "Down"
+	default:
+		return "No"
+	}
 }

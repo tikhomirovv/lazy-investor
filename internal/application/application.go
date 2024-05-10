@@ -14,20 +14,18 @@ import (
 )
 
 type Application struct {
-	config    *config.Config
-	logger    logging.Logger
-	tinkoff   *tinkoff.TinkoffService
-	chart     *chart.ChartService
-	analytics *analytics.AnalyticsService
+	config  *config.Config
+	logger  logging.Logger
+	tinkoff *tinkoff.TinkoffService
+	chart   *chart.ChartService
 }
 
-func NewApplication(config *config.Config, logger logging.Logger, tinkoff *tinkoff.TinkoffService, chart *chart.ChartService, analytics *analytics.AnalyticsService) *Application {
+func NewApplication(config *config.Config, logger logging.Logger, tinkoff *tinkoff.TinkoffService, chart *chart.ChartService) *Application {
 	return &Application{
-		config:    config,
-		logger:    logger,
-		tinkoff:   tinkoff,
-		chart:     chart,
-		analytics: analytics,
+		config:  config,
+		logger:  logger,
+		tinkoff: tinkoff,
+		chart:   chart,
 	}
 }
 
@@ -45,10 +43,10 @@ func (a *Application) analyse(i config.InstConf) {
 	var candles []dto.Candle
 	// var dates [][]time.Time = [][] {time.Now().Add(-24 * 30 *12 *time.Hour )}
 	dates := [][]time.Time{
-		{
-			time.Now().Add(-24 * 30 * 24 * time.Hour),
-			time.Now().Add(-24 * 30 * 12 * time.Hour),
-		},
+		// {
+		// 	time.Now().Add(-24 * 30 * 24 * time.Hour),
+		// 	time.Now().Add(-24 * 30 * 12 * time.Hour),
+		// },
 		{
 			time.Now().Add(-24 * 30 * 12 * time.Hour),
 			time.Now().Add(-6 * time.Hour),
@@ -74,17 +72,21 @@ func (a *Application) analyse(i config.InstConf) {
 	}
 	defer outFile.Close()
 
+	swings := analytics.FindSwings(candles, 2)
+	currentTrend, trendChanges := analytics.GetTrends(swings)
 	chart := &chart.ChartValues{
 		Title:   instrument.Name,
 		Candles: candles,
-		// Trends: tc,
+		Trends:  trendChanges,
 		EMAs: []dto.EMA{
 			analytics.CalculateMovingAverage("EMA 10", candles, 10),
 			analytics.CalculateMovingAverage("EMA 50", candles, 50),
 			analytics.CalculateMovingAverage("EMA 100", candles, 100),
 			analytics.CalculateMovingAverage("EMA 200", candles, 200),
 		},
+		Swings: swings,
 	}
+	a.logger.Info("Current trend", "trend", currentTrend.String(), "tc", trendChanges)
 	err = a.chart.Generate(chart, outFile)
 	if err != nil {
 		a.logger.Error("Generate chart error", "error", err)
