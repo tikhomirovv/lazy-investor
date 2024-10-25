@@ -74,6 +74,8 @@ func (a *Application) analyse(i config.InstConf) {
 
 	swings := analytics.FindSwings(candles, 2)
 	currentTrend, trendChanges := analytics.GetTrends(swings)
+	// zz := analytics.CalculateZigZag(candles, 0.02)
+	zz := analytics.ZigZag(candles, 14, 0.01, 2)
 	chart := &chart.ChartValues{
 		Title:   instrument.Name,
 		Candles: candles,
@@ -84,9 +86,11 @@ func (a *Application) analyse(i config.InstConf) {
 			analytics.CalculateMovingAverage("EMA 100", candles, 100),
 			analytics.CalculateMovingAverage("EMA 200", candles, 200),
 		},
-		Swings: swings,
+		Swings:  swings,
+		ZigZags: zz,
 	}
 	a.logger.Info("Current trend", "trend", currentTrend.String(), "tc", trendChanges)
+	a.logger.Info("ZZ", "zz", zz)
 	err = a.chart.Generate(chart, outFile)
 	if err != nil {
 		a.logger.Error("Generate chart error", "error", err)

@@ -24,6 +24,7 @@ type ChartValues struct {
 	Trends  []dto.TrendChange
 	EMAs    []dto.EMA
 	Swings  []dto.Swing
+	ZigZags []dto.ZigZagPoint
 }
 
 // https://github.com/wcharczuk/go-chart/blob/main/examples/stock_analysis/main.go
@@ -50,13 +51,15 @@ func (cs *ChartService) Generate(chart *ChartValues, w io.Writer) error {
 		InnerSeries: close,
 	}
 
-	swingsHigh, swingsLow := getSwingsTimeSeries(chart.Swings)
-	trendsUp, trendsDown, trendsNo, _ := getTrendsTimeSeries(chart.Trends)
+	// swingsHigh, swingsLow := getSwingsTimeSeries(chart.Swings)
+	zzHigh, zzLow := getZigZagsTimeSeries(chart.ZigZags)
+	// trendsUp, trendsDown, trendsNo, _ := getTrendsTimeSeries(chart.Trends)
 	series := []gc.Series{bbSeries,
 		close, high, low,
 		// smaSeries,
-		trendsUp, trendsDown, trendsNo,
-		swingsHigh, swingsLow,
+		// trendsUp, trendsDown, trendsNo,
+		// swingsHigh, swingsLow,
+		zzHigh, zzLow,
 		// trendAnnotations,
 	}
 
@@ -254,6 +257,42 @@ func getSwingsTimeSeries(swings []dto.Swing) (gc.TimeSeries, gc.TimeSeries) {
 			Style: gc.Style{
 				StrokeWidth: gc.Disabled,
 				DotWidth:    2,
+				DotColor:    gc.GetDefaultColor(2),
+				Show:        true,
+			},
+			XValues: lDates,
+			YValues: lValues,
+		}
+}
+
+func getZigZagsTimeSeries(zz []dto.ZigZagPoint) (gc.TimeSeries, gc.TimeSeries) {
+	var hDates, lDates []time.Time
+	var hValues, lValues []float64
+	for _, z := range zz {
+		if z.Type == dto.ZigZagHigh {
+			hDates = append(hDates, z.Candle.Time)
+			hValues = append(hValues, z.Candle.High)
+		} else {
+			lDates = append(lDates, z.Candle.Time)
+			lValues = append(lValues, z.Candle.Low)
+		}
+	}
+	return gc.TimeSeries{
+			Name: "ZZHigh",
+			Style: gc.Style{
+				StrokeWidth: gc.Disabled,
+				DotWidth:    5,
+				DotColor:    gc.GetDefaultColor(1),
+				Show:        true,
+			},
+			XValues: hDates,
+			YValues: hValues,
+		},
+		gc.TimeSeries{
+			Name: "ZZLow",
+			Style: gc.Style{
+				StrokeWidth: gc.Disabled,
+				DotWidth:    5,
 				DotColor:    gc.GetDefaultColor(2),
 				Show:        true,
 			},
