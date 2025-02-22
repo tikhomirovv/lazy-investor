@@ -1,7 +1,9 @@
 package dto
 
+type Isin string
+
 type Instrument struct {
 	Name string
-	Isin string
+	Isin Isin
 	Uid  string
 }

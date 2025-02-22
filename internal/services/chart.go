@@ -1,4 +1,4 @@
-package chart
+package services
 
 import (
 	"fmt"

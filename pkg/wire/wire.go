@@ -8,8 +8,7 @@ import (
 
 	"github.com/google/wire"
 	"github.com/tikhomirovv/lazy-investor/internal/application"
-	"github.com/tikhomirovv/lazy-investor/internal/chart"
-	"github.com/tikhomirovv/lazy-investor/internal/tinkoff"
+	"github.com/tikhomirovv/lazy-investor/internal/services"
 	"github.com/tikhomirovv/lazy-investor/pkg/config"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
 )
@@ -22,8 +21,8 @@ func providerApplicationConfigPath() string {
 	return ConfigPath
 }
 
-func providerTinkoffConfig() tinkoff.Config {
-	return tinkoff.Config{
+func providerTinkoffConfig() services.TinkoffConfig {
+	return services.TinkoffConfig{
 		AppName: os.Getenv("APP_NAME"),
 		Host:    os.Getenv("TINKOFF_API_HOST"),
 		Token:   os.Getenv("TINKOFF_API_TOKEN"),
@@ -38,12 +37,12 @@ func InitConfig() (*config.Config, error) {
 	))
 }
 
-func InitTinkoffService(logger logging.Logger) (*tinkoff.TinkoffService, error) {
+func InitTinkoffService(logger logging.Logger) (*services.TinkoffService, error) {
 	wire.Build(
 		providerTinkoffConfig,
-		tinkoff.NewTinkoffService,
+		services.NewTinkoffService,
 	)
-	return &tinkoff.TinkoffService{}, nil
+	return &services.TinkoffService{}, nil
 }
 
 func InitLogger() *logging.ZLogger {
@@ -59,7 +58,8 @@ func InitApplication() (*application.Application, error) {
 		InitLogger,
 		wire.Bind(new(logging.Logger), new(*logging.ZLogger)),
 		InitTinkoffService,
-		chart.NewChartService,
+		services.NewChartService,
+		services.NewStrategyService,
 		application.NewApplication,
 	)
 	return &application.Application{}, nil

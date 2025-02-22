@@ -8,8 +8,7 @@ package wire
 
 import (
 	"github.com/tikhomirovv/lazy-investor/internal/application"
-	"github.com/tikhomirovv/lazy-investor/internal/chart"
-	"github.com/tikhomirovv/lazy-investor/internal/tinkoff"
+	"github.com/tikhomirovv/lazy-investor/internal/services"
 	"github.com/tikhomirovv/lazy-investor/pkg/config"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
 	"os"
@@ -26,9 +25,9 @@ func InitConfig() (*config.Config, error) {
 	return configConfig, nil
 }
 
-func InitTinkoffService(logger logging.Logger) (*tinkoff.TinkoffService, error) {
+func InitTinkoffService(logger logging.Logger) (*services.TinkoffService, error) {
 	tinkoffConfig := providerTinkoffConfig()
-	tinkoffService, err := tinkoff.NewTinkoffService(tinkoffConfig, logger)
+	tinkoffService, err := services.NewTinkoffService(tinkoffConfig, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -50,8 +49,9 @@ func InitApplication() (*application.Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	chartService := chart.NewChartService()
-	applicationApplication := application.NewApplication(configConfig, zLogger, tinkoffService, chartService)
+	chartService := services.NewChartService()
+	strategyService := services.NewStrategyService(zLogger, tinkoffService)
+	applicationApplication := application.NewApplication(configConfig, zLogger, tinkoffService, chartService, strategyService)
 	return applicationApplication, nil
 }
 
@@ -65,8 +65,8 @@ func providerApplicationConfigPath() string {
 	return ConfigPath
 }
 
-func providerTinkoffConfig() tinkoff.Config {
-	return tinkoff.Config{
+func providerTinkoffConfig() services.TinkoffConfig {
+	return services.TinkoffConfig{
 		AppName: os.Getenv("APP_NAME"),
 		Host:    os.Getenv("TINKOFF_API_HOST"),
 		Token:   os.Getenv("TINKOFF_API_TOKEN"),
