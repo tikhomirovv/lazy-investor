@@ -1,66 +1,67 @@
 //go:build wireinject
 // +build wireinject
 
+// Package wire provides dependency injection via Google Wire. Run: make wire or wire gen .
 package wire
 
 import (
 	"os"
 
 	"github.com/google/wire"
+	"github.com/tikhomirovv/lazy-investor/internal/adapters/marketdata/tinkoff"
+	"github.com/tikhomirovv/lazy-investor/internal/adapters/report/chart"
 	"github.com/tikhomirovv/lazy-investor/internal/application"
-	"github.com/tikhomirovv/lazy-investor/internal/services"
 	"github.com/tikhomirovv/lazy-investor/pkg/config"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
 )
 
-const (
-	ConfigPath = "./config.yml"
-)
+const configPath = "./config.yml"
 
-func providerApplicationConfigPath() string {
-	return ConfigPath
+func providerConfigPath() string {
+	return configPath
 }
 
-func providerTinkoffConfig() services.TinkoffConfig {
-	return services.TinkoffConfig{
+func providerTinkoffConfig() tinkoff.Config {
+	return tinkoff.Config{
 		AppName: os.Getenv("APP_NAME"),
 		Host:    os.Getenv("TINKOFF_API_HOST"),
 		Token:   os.Getenv("TINKOFF_API_TOKEN"),
 	}
-
 }
 
+// InitConfig returns config from YAML file.
 func InitConfig() (*config.Config, error) {
 	panic(wire.Build(
-		providerApplicationConfigPath,
+		providerConfigPath,
 		config.NewConfig,
 	))
 }
 
-func InitTinkoffService(logger logging.Logger) (*services.TinkoffService, error) {
-	wire.Build(
-		providerTinkoffConfig,
-		services.NewTinkoffService,
-	)
-	return &services.TinkoffService{}, nil
-}
-
+// InitLogger returns the default zerolog-based logger.
 func InitLogger() *logging.ZLogger {
-	wire.Build(
+	panic(wire.Build(
 		logging.NewLogger,
-	)
-	return &logging.ZLogger{}
+	))
 }
 
+// InitTinkoffService builds Tinkoff market data adapter.
+func InitTinkoffService(logger logging.Logger) (*tinkoff.Service, error) {
+	panic(wire.Build(
+		providerTinkoffConfig,
+		tinkoff.NewService,
+	))
+}
+
+// InitApplication builds the main application with all adapters.
 func InitApplication() (*application.Application, error) {
-	wire.Build(
-		InitConfig,
-		InitLogger,
+	panic(wire.Build(
+		providerConfigPath,
+		config.NewConfig,
+		providerTinkoffConfig,
 		wire.Bind(new(logging.Logger), new(*logging.ZLogger)),
-		InitTinkoffService,
-		services.NewChartService,
-		services.NewStrategyService,
+		logging.NewLogger,
+		tinkoff.NewService,
+		chart.NewService,
 		application.NewApplication,
-	)
-	return &application.Application{}, nil
+	))
 }

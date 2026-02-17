@@ -15,10 +15,12 @@ const (
 	DefaultLogLevel = zerolog.DebugLevel
 )
 
+// ZLogger wraps zerolog and implements Logger.
 type ZLogger struct {
 	logger zerolog.Logger
 }
 
+// NewLogger creates a console zerolog logger with timestamp.
 func NewLogger() *ZLogger {
 	logger := zerolog.New(zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
 		w.TimeFormat = time.RFC3339
@@ -27,7 +29,7 @@ func NewLogger() *ZLogger {
 		Timestamp().
 		Logger()
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	return &ZLogger{logger}
+	return &ZLogger{logger: logger}
 }
 
 func (z ZLogger) Debug(msg string, args ...interface{}) {
@@ -54,6 +56,10 @@ func (z ZLogger) Errorf(msg string, args ...interface{}) {
 	z.logger.Error().Timestamp().Fields(args).Msg(msg)
 }
 
+func (z ZLogger) Fatalf(format string, args ...interface{}) {
+	z.logger.Fatal().Timestamp().Msgf(format, args...)
+}
+
 func (z ZLogger) Panic(msg string, args ...interface{}) {
 	z.logger.Panic().Timestamp().Fields(args).Msg(msg)
 }
@@ -64,10 +70,6 @@ func (z ZLogger) Printf(format string, v ...interface{}) {
 
 func (z ZLogger) Fatal(v ...interface{}) {
 	z.logger.Fatal().Timestamp().Msg(fmt.Sprint(v...))
-}
-
-func (z ZLogger) Fatalf(format string, args ...interface{}) {
-	z.logger.Fatal().Timestamp().Msgf(format, args...)
 }
 
 func (z ZLogger) Println(args ...interface{}) {

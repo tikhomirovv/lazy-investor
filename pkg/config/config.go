@@ -1,3 +1,4 @@
+// Package config provides application configuration loading (YAML).
 package config
 
 import (
@@ -7,14 +8,18 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// InstConf describes a single instrument entry in config.
 type InstConf struct {
-	Isin string
+	Isin string `yaml:"isin"`
 }
+
+// Config holds app-level settings (log level, instrument list).
 type Config struct {
 	LogLevel    string     `yaml:"logLevel"`
 	Instruments []InstConf `yaml:"instruments"`
 }
 
+// NewConfig reads and parses the YAML config file at configPath.
 func NewConfig(configPath string) (*Config, error) {
 	yamlFile, err := os.ReadFile(configPath)
 	if err != nil {

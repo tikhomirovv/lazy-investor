@@ -1,14 +1,14 @@
+// Package logging provides a project-wide logger interface and implementations.
 package logging
 
-// Общий интерфейс на весь проект
+// Logger is the common logging interface used across the project.
 type Logger interface {
 	Debug(msg string, args ...interface{})
 	Info(msg string, args ...interface{})
 	Warn(msg string, args ...interface{})
 	Error(msg string, args ...interface{})
 
-	// investgo.Logger
-	Infof(template string, args ...any)
-	Errorf(template string, args ...any)
-	Fatalf(template string, args ...any)
+	Infof(template string, args ...interface{})
+	Errorf(template string, args ...interface{})
+	Fatalf(template string, args ...interface{})
 }
