@@ -4,15 +4,16 @@
 
 ## Запуск
 
-```bash
-cp .env.example .env   # задать APP_NAME, TINKOFF_API_HOST, TINKOFF_API_TOKEN
-make run               # или: go run ./cmd/analyst/main.go
+```powershell
+copy .env.example .env   # задать APP_NAME, TINKOFF_API_HOST, TINKOFF_API_TOKEN; опционально TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+make run                 # или: go run ./cmd/analyst/main.go
 ```
 
-Сейчас приложение поднимает соединение с Tinkoff API и ждёт graceful shutdown (SIGINT/SIGTERM). Пайплайн (сбор данных → фичи → LLM → Telegram) в разработке.
+**Stage 0**: при старте и по расписанию (интервал в секундах в `config.yml` → `scheduler.intervalSeconds`) приложение загружает дневные свечи по инструментам из конфига, считает метрики (доходность, волатильность, max drawdown), формирует текстовый отчёт и при включённом Telegram отправляет его в чат (и опционально PNG-график). Без LLM и интентов. При отсутствии `TELEGRAM_BOT_TOKEN` или `TELEGRAM_CHAT_ID` отчёт только пишется в лог.
 
 ## Технические детали
 
-- **Go**, структура по [SPEC.md](SPEC.md): `cmd/`, `internal/ports` (интерфейсы), `internal/adapters` (Tinkoff, chart), `internal/application`, `pkg` (config, logging, wire).
+- **Go**, структура по [SPEC.md](SPEC.md): `cmd/`, `internal/ports` (интерфейсы), `internal/adapters` (Tinkoff, chart, telegram), `internal/application` (Stage 0 pipeline, metrics, report), `pkg` (config, logging, wire).
 - **Рынок**: адаптер Tinkoff Invest API за портом `MarketDataProvider` (свечи, поиск инструмента). Контракт данных — `internal/dto` (Candle, Instrument).
-- **DI**: Google Wire в `pkg/wire`; пересборка: `make wire`.
+- **Telegram**: порт `TelegramNotifier`, адаптер в `internal/adapters/telegram` (Bot API; при пустых env — no-op).
+- **DI**: Google Wire в `pkg/wire`; пересборка: `cd pkg/wire && go run -mod=mod github.com/google/wire/cmd/wire .` или `make wire` (если в Makefile добавлена эта команда).

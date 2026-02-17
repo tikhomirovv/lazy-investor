@@ -10,6 +10,7 @@ import (
 	"github.com/google/wire"
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/marketdata/tinkoff"
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/report/chart"
+	"github.com/tikhomirovv/lazy-investor/internal/adapters/telegram"
 	"github.com/tikhomirovv/lazy-investor/internal/application"
 	"github.com/tikhomirovv/lazy-investor/internal/ports"
 	"github.com/tikhomirovv/lazy-investor/pkg/config"
@@ -27,6 +28,14 @@ func providerTinkoffConfig() tinkoff.Config {
 		AppName: os.Getenv("APP_NAME"),
 		Host:    os.Getenv("TINKOFF_API_HOST"),
 		Token:   os.Getenv("TINKOFF_API_TOKEN"),
+	}
+}
+
+// providerTelegramConfig returns Telegram adapter config from env. Empty token/chatID = no-op mode.
+func providerTelegramConfig() telegram.Config {
+	return telegram.Config{
+		Token:  os.Getenv("TELEGRAM_BOT_TOKEN"),
+		ChatID: os.Getenv("TELEGRAM_CHAT_ID"),
 	}
 }
 
@@ -53,16 +62,19 @@ func InitTinkoffService(logger logging.Logger) (*tinkoff.Service, error) {
 	))
 }
 
-// InitApplication builds the main application with all adapters.
+// InitApplication builds the main application with all adapters (market data, chart, telegram).
 func InitApplication() (*application.Application, error) {
 	panic(wire.Build(
 		providerConfigPath,
 		config.NewConfig,
 		providerTinkoffConfig,
+		providerTelegramConfig,
 		wire.Bind(new(logging.Logger), new(*logging.ZLogger)),
 		wire.Bind(new(ports.MarketDataProvider), new(*tinkoff.Service)),
+		wire.Bind(new(ports.TelegramNotifier), new(*telegram.Service)),
 		logging.NewLogger,
 		tinkoff.NewService,
+		telegram.NewService,
 		chart.NewService,
 		application.NewApplication,
 	))
