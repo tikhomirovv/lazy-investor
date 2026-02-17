@@ -11,6 +11,7 @@ import (
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/marketdata/tinkoff"
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/report/chart"
 	"github.com/tikhomirovv/lazy-investor/internal/application"
+	"github.com/tikhomirovv/lazy-investor/internal/ports"
 	"github.com/tikhomirovv/lazy-investor/pkg/config"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
 )
@@ -63,7 +64,8 @@ func InitApplication() (*application.Application, error) {
 	if err != nil {
 		return nil, err
 	}
+	var market ports.MarketDataProvider = tinkoffSvc
 	chartSvc := chart.NewService()
-	app := application.NewApplication(cfg, zLogger, tinkoffSvc, chartSvc)
+	app := application.NewApplication(cfg, zLogger, market, chartSvc)
 	return app, nil
 }
