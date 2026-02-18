@@ -17,5 +17,8 @@ candles:
   interval: "1d"
 
 # Telegram: reports sent only if enabled and TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID are set in .env.
+# handleCommands: true enables /candles command (long polling). allowedChatID (optional): only this chat can use commands.
 telegram:
   enabled: true
+  handleCommands: true
+  # allowedChatID: "123456789"

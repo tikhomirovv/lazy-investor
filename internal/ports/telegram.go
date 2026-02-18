@@ -20,9 +20,16 @@ type PhotoItem struct {
 type TelegramNotifier interface {
 	// SendMessage sends a text message to the configured chat.
 	SendMessage(ctx context.Context, text string) error
+	// SendMessageToChat sends a text message to a specific chat (e.g. for command replies or errors).
+	SendMessageToChat(ctx context.Context, chatID int64, text string) error
 	// SendPhoto sends a photo with optional caption. imageReader must contain PNG/JPEG bytes.
 	SendPhoto(ctx context.Context, caption string, imageReader io.Reader) error
 	// SendPhotoAlbum sends multiple photos as a media group (album). Max 10 per album; adapter may chunk.
 	// If media group fails, adapter may fall back to sending each photo individually.
 	SendPhotoAlbum(ctx context.Context, items []PhotoItem) error
+	// SendDocument sends a file (e.g. CSV) to the given chat. Used for /candles command response.
+	SendDocument(ctx context.Context, chatID int64, filename string, document io.Reader) error
+	// ListenForMessages runs long polling and calls handler for each incoming text message.
+	// Blocks until ctx is done. Used when handleCommands is enabled to process /candles etc.
+	ListenForMessages(ctx context.Context, handler func(chatID int64, text string))
 }

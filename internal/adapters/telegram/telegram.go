@@ -17,7 +17,8 @@ import (
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
 )
 
-const requestTimeout = 15 * time.Second
+// requestTimeout must be greater than getUpdates long-poll timeout (60s) so ListenForMessages does not hit client deadline.
+const requestTimeout = 90 * time.Second
 
 // Ensure Service implements ports.TelegramNotifier.
 var _ ports.TelegramNotifier = (*Service)(nil)
@@ -62,7 +63,7 @@ func (s *Service) chatIDInt64() (int64, bool) {
 	return id, true
 }
 
-// SendMessage sends a text message. No-op if bot or chatID not configured.
+// SendMessage sends a text message to the configured chat. No-op if bot or chatID not configured.
 func (s *Service) SendMessage(ctx context.Context, text string) error {
 	if s.bot == nil {
 		s.logger.Debug("Telegram not configured (missing token or chat_id), skipping SendMessage")
@@ -72,10 +73,39 @@ func (s *Service) SendMessage(ctx context.Context, text string) error {
 	if !ok {
 		return nil
 	}
+	return s.SendMessageToChat(ctx, chatID, text)
+}
+
+// SendMessageToChat sends a text message to a specific chat (e.g. command reply or error).
+// No-op if bot not configured.
+func (s *Service) SendMessageToChat(ctx context.Context, chatID int64, text string) error {
+	if s.bot == nil {
+		s.logger.Debug("Telegram not configured (missing token or chat_id), skipping SendMessageToChat")
+		return nil
+	}
 	msg := tgbotapi.NewMessage(chatID, text)
 	_, err := s.bot.Send(msg)
 	if err != nil {
-		return fmt.Errorf("telegram SendMessage: %w", err)
+		return fmt.Errorf("telegram SendMessageToChat: %w", err)
+	}
+	return nil
+}
+
+// SendDocument sends a file (e.g. CSV) to the given chat. Used for /candles command.
+// No-op if bot not configured.
+func (s *Service) SendDocument(ctx context.Context, chatID int64, filename string, document io.Reader) error {
+	if s.bot == nil {
+		s.logger.Debug("Telegram not configured (missing token or chat_id), skipping SendDocument")
+		return nil
+	}
+	if filename == "" {
+		filename = "doc_" + time.Now().Format("20060102_150405") + ".txt"
+	}
+	file := tgbotapi.FileReader{Name: filename, Reader: document}
+	doc := tgbotapi.NewDocument(chatID, file)
+	_, err := s.bot.Send(doc)
+	if err != nil {
+		return fmt.Errorf("telegram SendDocument: %w", err)
 	}
 	return nil
 }
@@ -187,4 +217,29 @@ func (s *Service) sendMediaGroupChunk(chatID int64, chunk []photoData) error {
 		return fmt.Errorf("telegram SendMediaGroup: %w", err)
 	}
 	return nil
+}
+
+// ListenForMessages runs long polling and calls handler for each incoming text message.
+// Blocks until ctx is done. No-op if bot not configured.
+func (s *Service) ListenForMessages(ctx context.Context, handler func(chatID int64, text string)) {
+	if s.bot == nil {
+		s.logger.Debug("Telegram not configured, skipping ListenForMessages")
+		return
+	}
+	u := tgbotapi.NewUpdate(0)
+	u.Timeout = 60
+	updates := s.bot.GetUpdatesChan(u)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case update, ok := <-updates:
+			if !ok {
+				return
+			}
+			if update.Message != nil && update.Message.Text != "" {
+				handler(update.Message.Chat.ID, update.Message.Text)
+			}
+		}
+	}
 }

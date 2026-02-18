@@ -12,6 +12,7 @@ import (
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/report/chart"
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/telegram"
 	"github.com/tikhomirovv/lazy-investor/internal/application"
+	"github.com/tikhomirovv/lazy-investor/internal/application/exportcandles"
 	"github.com/tikhomirovv/lazy-investor/pkg/config"
 	"github.com/tikhomirovv/lazy-investor/pkg/logging"
 	"os"
@@ -45,7 +46,7 @@ func InitTinkoffService(logger logging.Logger) (*tinkoff.Service, error) {
 	return service, nil
 }
 
-// InitApplication builds the main application with all adapters (market data, chart, telegram, indicators).
+// InitApplication builds the main application with all adapters (market data, chart, telegram, indicators, export candles).
 func InitApplication() (*application.Application, error) {
 	string2 := providerConfigPath()
 	configConfig, err := config.NewConfig(string2)
@@ -62,7 +63,8 @@ func InitApplication() (*application.Application, error) {
 	telegramConfig := providerTelegramConfig()
 	telegramService := telegram.NewService(telegramConfig, zLogger)
 	indicatorService := indicator.NewService()
-	applicationApplication := application.NewApplication(configConfig, zLogger, service, chartService, telegramService, indicatorService)
+	exportcandlesService := exportcandles.NewService(service)
+	applicationApplication := application.NewApplication(configConfig, zLogger, service, chartService, telegramService, indicatorService, exportcandlesService)
 	return applicationApplication, nil
 }
 

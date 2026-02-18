@@ -33,6 +33,10 @@ type CandlesConf struct {
 type TelegramConf struct {
 	// Enabled turns on sending reports to Telegram. If false or env not set, reports are only logged.
 	Enabled bool `yaml:"enabled"`
+	// HandleCommands enables receiving updates and handling /candles etc. When true, a goroutine runs long polling.
+	HandleCommands bool `yaml:"handleCommands"`
+	// AllowedChatID if set (numeric) restricts command handling to this chat only; empty = respond to any chat.
+	AllowedChatID string `yaml:"allowedChatID"`
 }
 
 // Config holds app-level settings (log level, instrument list, Stage 0 sections).
