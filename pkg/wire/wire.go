@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/google/wire"
+	"github.com/tikhomirovv/lazy-investor/internal/adapters/indicators/indicator"
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/marketdata/tinkoff"
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/report/chart"
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/telegram"
@@ -62,7 +63,7 @@ func InitTinkoffService(logger logging.Logger) (*tinkoff.Service, error) {
 	))
 }
 
-// InitApplication builds the main application with all adapters (market data, chart, telegram).
+// InitApplication builds the main application with all adapters (market data, chart, telegram, indicators).
 func InitApplication() (*application.Application, error) {
 	panic(wire.Build(
 		providerConfigPath,
@@ -72,10 +73,12 @@ func InitApplication() (*application.Application, error) {
 		wire.Bind(new(logging.Logger), new(*logging.ZLogger)),
 		wire.Bind(new(ports.MarketDataProvider), new(*tinkoff.Service)),
 		wire.Bind(new(ports.TelegramNotifier), new(*telegram.Service)),
+		wire.Bind(new(ports.IndicatorProvider), new(*indicator.Service)),
 		logging.NewLogger,
 		tinkoff.NewService,
 		telegram.NewService,
 		chart.NewService,
+		indicator.NewService,
 		application.NewApplication,
 	))
 }

@@ -74,6 +74,10 @@ func (a *Application) RunStage0Once(ctx context.Context) {
 			Volatility:  metrics.RealisedVolatility(closes),
 			MaxDrawdown: metrics.MaxDrawdown(closes),
 		}
+		if a.indicators != nil {
+			ind := a.indicators.Compute(closes)
+			row.SMA20, row.EMA20, row.RSI14 = ind.SMA20, ind.EMA20, ind.RSI14
+		}
 		rows = append(rows, row)
 		if len(firstCandles) == 0 {
 			firstCandles = candles
@@ -86,13 +90,13 @@ func (a *Application) RunStage0Once(ctx context.Context) {
 		return
 	}
 
-	reportText := BuildReport(rows, to)
+	data := ReportData{AsOf: to, Rows: rows}
 	a.logger.Info("Stage 0 report built", "instruments", len(rows))
-	// At debug level the full report is visible in logs (e.g. when Telegram is not configured).
-	a.logger.Debug("Stage 0 report (full):\n" + reportText)
+	// At debug level the full report is visible in logs (FormatForLog = verbose).
+	a.logger.Debug("Stage 0 report (full):\n" + FormatForLog(data))
 
 	if a.config.Telegram.Enabled {
-		if err := a.telegram.SendMessage(ctx, reportText); err != nil {
+		if err := a.telegram.SendMessage(ctx, FormatForTelegram(data)); err != nil {
 			a.logger.Error("Telegram SendMessage failed", "error", err)
 		}
 		if len(firstCandles) > 0 && a.chartSvc != nil {

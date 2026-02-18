@@ -7,6 +7,7 @@
 package wire
 
 import (
+	"github.com/tikhomirovv/lazy-investor/internal/adapters/indicators/indicator"
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/marketdata/tinkoff"
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/report/chart"
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/telegram"
@@ -44,7 +45,7 @@ func InitTinkoffService(logger logging.Logger) (*tinkoff.Service, error) {
 	return service, nil
 }
 
-// InitApplication builds the main application with all adapters (market data, chart, telegram).
+// InitApplication builds the main application with all adapters (market data, chart, telegram, indicators).
 func InitApplication() (*application.Application, error) {
 	string2 := providerConfigPath()
 	configConfig, err := config.NewConfig(string2)
@@ -60,7 +61,8 @@ func InitApplication() (*application.Application, error) {
 	chartService := chart.NewService()
 	telegramConfig := providerTelegramConfig()
 	telegramService := telegram.NewService(telegramConfig, zLogger)
-	applicationApplication := application.NewApplication(configConfig, zLogger, service, chartService, telegramService)
+	indicatorService := indicator.NewService()
+	applicationApplication := application.NewApplication(configConfig, zLogger, service, chartService, telegramService, indicatorService)
 	return applicationApplication, nil
 }
 

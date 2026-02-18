@@ -1,6 +1,8 @@
 module github.com/tikhomirovv/lazy-investor
 
-go 1.19
+go 1.22
+
+toolchain go1.24.1
 
 require (
 	github.com/google/wire v0.6.0
@@ -8,6 +10,7 @@ require (
 	github.com/rs/zerolog v1.32.0
 	github.com/russianinvestments/invest-api-go-sdk v1.19.0
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
+	github.com/cinar/indicator/v2 v2.1.24
 	gopkg.in/yaml.v2 v2.4.0
 )
 

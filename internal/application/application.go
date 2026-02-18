@@ -13,27 +13,30 @@ import (
 
 // Application holds config and adapters; Run executes the Stage 0 pipeline (scheduler → data → report → telegram), Stop cleans up.
 type Application struct {
-	config    *config.Config
-	logger    logging.Logger
-	market    ports.MarketDataProvider
-	chartSvc  *chart.Service
-	telegram  ports.TelegramNotifier
+	config     *config.Config
+	logger     logging.Logger
+	market     ports.MarketDataProvider
+	chartSvc   *chart.Service
+	telegram   ports.TelegramNotifier
+	indicators ports.IndicatorProvider // optional; nil = no indicator values in report
 }
 
-// NewApplication constructs the app from config and adapters (used by Wire).
+// NewApplication constructs the app from config and adapters (used by Wire). indicators may be nil.
 func NewApplication(
 	cfg *config.Config,
 	logger logging.Logger,
 	market ports.MarketDataProvider,
 	chartSvc *chart.Service,
 	telegram ports.TelegramNotifier,
+	indicators ports.IndicatorProvider,
 ) *Application {
 	return &Application{
-		config:   cfg,
-		logger:   logger,
-		market:   market,
-		chartSvc: chartSvc,
-		telegram: telegram,
+		config:     cfg,
+		logger:     logger,
+		market:     market,
+		chartSvc:   chartSvc,
+		telegram:   telegram,
+		indicators: indicators,
 	}
 }
 
