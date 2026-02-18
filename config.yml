@@ -2,13 +2,13 @@ logLevel: "debug"
 instruments:
   - isin: RU0009029540 # SBER
   # - isin: RU000A107UL4 # TCSG
-  - isin: RU0007661625 # GAZP
-  - isin: RU000A101NZ2 # GOLD?
+  # - isin: RU0007661625 # GAZP
+  # - isin: RU000A101NZ2 # GOLD?
   # - isin: US69269L1044 # OZON (often not found in sandbox; uncomment for prod)
 
 # Stage 0: scheduler runs report pipeline every intervalSeconds; runOnStart = once at startup.
 scheduler:
-  intervalSeconds: 3600
+  intervalSeconds: 300
   runOnStart: true
 
 # Candles: daily bars, lookback in days. Interval "1d" for Stage 0.
