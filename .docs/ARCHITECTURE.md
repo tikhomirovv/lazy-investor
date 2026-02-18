@@ -295,6 +295,35 @@
 - Реализовать 2–3 индикатора (пример: SMA/EMA + RSI, или EMA + ATR).
 - Добавить индикаторы в отчёт (текст и/или overlay линии на chart).
 
+Дополнение (важно): в Stage 1 вводим базовый слой **FeatureEngine** (фичи поверх свечей/индикаторов).
+Цель: не “кормить” отчёт/стратегии/LLM голыми числами индикаторов, а получать компактные и объяснимые признаки
+(`value`, `prev`, `delta`, `state`, `events`, `ready`). Это упрощает дальнейший переход к snapshot/intents в Stage 2.
+
+- Подробное правило разработки и шаблон описания фич: см. `.docs/FEATURES.md`.
+- FeatureEngine берёт на вход: последние N закрытых свечей (например 50–200) + результаты индикаторов.
+- FeatureEngine выдаёт: структурированный `FeatureSet` (детерминированно, одинаковый вход → одинаковый выход).
+- На старте (Stage 1) **не требуется** отдельный процесс/Redis для хранения индикаторов: достаточно хранить историю свечей,
+  а фичи пересчитывать “на decision tick”. Хранилище/предрасчёт добавим позже, если появится реальная необходимость.
+
+Минимальный “контракт” фич для текущих индикаторов (SMA20/EMA20/RSI14):
+- **SMA20**
+  - `sma20.value`, `sma20.prev`, `sma20.delta`
+  - события: `price_above_sma20`, `price_crossed_up_sma20`, `price_crossed_down_sma20`
+  - `sma20.ready` (false, если недостаточно истории)
+- **EMA20**
+  - `ema20.value`, `ema20.prev`, `ema20.delta`
+  - события: `price_above_ema20`, `price_crossed_up_ema20`, `price_crossed_down_ema20`
+  - `ema20.ready`
+- **RSI14**
+  - `rsi14.value`, `rsi14.prev`, `rsi14.delta`
+  - состояние: `rsi14.zone` = `oversold|neutral|overbought` (на базе порогов, например 30/70)
+  - события: `rsi14_crossed_up_30`, `rsi14_crossed_down_70` (и/или другие, которые выберем позже)
+  - `rsi14.ready`
+
+Комбинированные фичи (очень полезны и дешёвые):
+- `ema20_above_sma20` (тренд-фильтр)
+- `ema20_crossed_above_sma20` / `ema20_crossed_below_sma20` (события “пересечения”)
+
 #### Stage 2 (MVP) — intents + Telegram Approve/Reject + Knowledge Base, без исполнения
 
 - Ввести доменную модель `Intent` + `IntentStatus`.
