@@ -6,10 +6,12 @@ package application
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/tikhomirovv/lazy-investor/internal/adapters/report/chart"
+	"github.com/tikhomirovv/lazy-investor/internal/application/features"
 	"github.com/tikhomirovv/lazy-investor/internal/application/metrics"
 	"github.com/tikhomirovv/lazy-investor/internal/dto"
 	"github.com/tikhomirovv/lazy-investor/internal/ports"
@@ -33,8 +35,11 @@ func (a *Application) RunStage0Once(ctx context.Context) {
 	from := to.Add(-lookback)
 
 	var rows []InstrumentMetrics
-	var firstCandles []dto.Candle
-	var firstInstrumentName string
+	// chartItems: one PNG per instrument for Telegram album (media group).
+	var chartItems []struct {
+		name    string
+		candles []dto.Candle
+	}
 
 	for _, instConf := range a.config.Instruments {
 		instrument, err := a.market.FindInstrument(ctx, instConf.Isin)
@@ -77,12 +82,14 @@ func (a *Application) RunStage0Once(ctx context.Context) {
 		if a.indicators != nil {
 			ind := a.indicators.Compute(closes)
 			row.SMA20, row.EMA20, row.RSI14 = ind.SMA20, ind.EMA20, ind.RSI14
+			emaSet := features.ComputeEMAFeatures(a.indicators, closes)
+			row.EMAFeatures = &emaSet
 		}
 		rows = append(rows, row)
-		if len(firstCandles) == 0 {
-			firstCandles = candles
-			firstInstrumentName = instrument.Name
-		}
+		chartItems = append(chartItems, struct {
+			name    string
+			candles []dto.Candle
+		}{instrument.Name, candles})
 	}
 
 	if len(rows) == 0 {
@@ -99,14 +106,30 @@ func (a *Application) RunStage0Once(ctx context.Context) {
 		if err := a.telegram.SendMessage(ctx, FormatForTelegram(data)); err != nil {
 			a.logger.Error("Telegram SendMessage failed", "error", err)
 		}
-		if len(firstCandles) > 0 && a.chartSvc != nil {
-			var buf bytes.Buffer
-			chartInput := candlesToChartInput(firstInstrumentName, firstCandles)
-			if err := a.chartSvc.Generate(chartInput, &buf); err != nil {
-				a.logger.Warn("chart generate failed", "error", err)
-			} else if buf.Len() > 0 {
-				if err := a.telegram.SendPhoto(ctx, firstInstrumentName+" (D1)", bytes.NewReader(buf.Bytes())); err != nil {
+		if len(chartItems) > 0 && a.chartSvc != nil {
+			var album []ports.PhotoItem
+			for i, item := range chartItems {
+				var buf bytes.Buffer
+				overlays := buildEMAOverlays(a.indicators, item.candles)
+				chartInput := candlesToChartInput(item.name, item.candles, overlays)
+				if err := a.chartSvc.Generate(chartInput, &buf); err != nil {
+					a.logger.Warn("chart generate failed", "instrument", item.name, "error", err)
+					continue
+				}
+				if buf.Len() == 0 {
+					continue
+				}
+				caption := item.name + " (D1)"
+				filename := fmt.Sprintf("chart_%d.png", i)
+				album = append(album, ports.PhotoItem{Caption: caption, Reader: bytes.NewReader(buf.Bytes()), Filename: filename})
+			}
+			if len(album) == 1 {
+				if err := a.telegram.SendPhoto(ctx, album[0].Caption, album[0].Reader); err != nil {
 					a.logger.Error("Telegram SendPhoto failed", "error", err)
+				}
+			} else if len(album) > 1 {
+				if err := a.telegram.SendPhotoAlbum(ctx, album); err != nil {
+					a.logger.Error("Telegram SendPhotoAlbum failed", "error", err)
 				}
 			}
 		}
@@ -116,8 +139,31 @@ func (a *Application) RunStage0Once(ctx context.Context) {
 	a.logger.Info("Stage 0 pipeline finished")
 }
 
-// candlesToChartInput converts dto candles to chart.Input for PNG generation.
-func candlesToChartInput(title string, candles []dto.Candle) *chart.Input {
+// buildEMAOverlays returns chart overlay series for EMA20 and EMA100 from candles (for PNG).
+// Uses indicator provider; returns nil slice if provider is nil or data insufficient.
+func buildEMAOverlays(provider ports.IndicatorProvider, candles []dto.Candle) []chart.LineSeries {
+	if provider == nil || len(candles) == 0 {
+		return nil
+	}
+	closes := make([]float64, len(candles))
+	times := make([]time.Time, len(candles))
+	for i := range candles {
+		closes[i] = candles[i].Close
+		times[i] = candles[i].Time
+	}
+	var out []chart.LineSeries
+	for _, period := range []int{20, 100} {
+		sr := provider.EMA(closes, period)
+		if len(sr.Values) != len(times) {
+			continue
+		}
+		out = append(out, chart.LineSeries{Name: fmt.Sprintf("EMA%d", period), Times: times, Values: sr.Values})
+	}
+	return out
+}
+
+// candlesToChartInput converts dto candles to chart.Input for PNG generation. overlays (e.g. EMA20, EMA100) are optional.
+func candlesToChartInput(title string, candles []dto.Candle, overlays []chart.LineSeries) *chart.Input {
 	times := make([]time.Time, len(candles))
 	open, high, low, close := make([]float64, len(candles)), make([]float64, len(candles)), make([]float64, len(candles)), make([]float64, len(candles))
 	for i := range candles {
@@ -128,11 +174,12 @@ func candlesToChartInput(title string, candles []dto.Candle) *chart.Input {
 		close[i] = candles[i].Close
 	}
 	return &chart.Input{
-		Title: title,
-		Times: times,
-		Open:  open,
-		High:  high,
-		Low:   low,
-		Close: close,
+		Title:    title,
+		Times:    times,
+		Open:     open,
+		High:     high,
+		Low:      low,
+		Close:    close,
+		Overlays: overlays,
 	}
 }

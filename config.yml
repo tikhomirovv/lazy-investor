@@ -1,10 +1,10 @@
 logLevel: "debug"
 instruments:
   - isin: RU0009029540 # SBER
-  - isin: RU000A107UL4 # TCSG
-  # - isin: US69269L1044 # OZON (often not found in sandbox; uncomment for prod)
+  # - isin: RU000A107UL4 # TCSG
   - isin: RU0007661625 # GAZP
   - isin: RU000A101NZ2 # GOLD?
+  # - isin: US69269L1044 # OZON (often not found in sandbox; uncomment for prod)
 
 # Stage 0: scheduler runs report pipeline every intervalSeconds; runOnStart = once at startup.
 scheduler:
@@ -13,7 +13,7 @@ scheduler:
 
 # Candles: daily bars, lookback in days. Interval "1d" for Stage 0.
 candles:
-  lookbackDays: 30
+  lookbackDays: 300
   interval: "1d"
 
 # Telegram: reports sent only if enabled and TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID are set in .env.

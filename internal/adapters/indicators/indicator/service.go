@@ -53,3 +53,29 @@ func (s *Service) Compute(closes []float64) ports.IndicatorValues {
 	}
 	return out
 }
+
+// EMA returns the full EMA series for the given period, aligned to closes by index.
+// Values slice has length len(closes); indices 0..Warmup-1 are zero. Ready is true when at least two values exist.
+func (s *Service) EMA(closes []float64, period int) ports.SeriesResult {
+	out := ports.SeriesResult{Warmup: period, Values: make([]float64, len(closes))}
+	if period <= 0 || len(closes) < period {
+		return out
+	}
+	emaSeries := helper.ChanToSlice(trend.NewEmaWithPeriod[float64](period).Compute(helper.SliceToChan(closes)))
+	// cinar/indicator typically returns series aligned from start; length may equal len(closes) or len(closes)-period+1.
+	// We align so that Values[i] corresponds to closes[i]: pad front with zeros if needed.
+	n := len(emaSeries)
+	if n == 0 {
+		return out
+	}
+	offset := len(closes) - n
+	if offset < 0 {
+		offset = 0
+		n = len(closes)
+	}
+	for i := 0; i < n; i++ {
+		out.Values[offset+i] = emaSeries[i]
+	}
+	out.Ready = len(closes) >= period && n >= 2
+	return out
+}

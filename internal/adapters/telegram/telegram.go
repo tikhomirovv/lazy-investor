@@ -3,11 +3,13 @@
 package telegram
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -95,6 +97,94 @@ func (s *Service) SendPhoto(ctx context.Context, caption string, imageReader io.
 	_, err := s.bot.Send(photo)
 	if err != nil {
 		return fmt.Errorf("telegram SendPhoto: %w", err)
+	}
+	return nil
+}
+
+// MaxMediaGroupSize is Telegram's limit for one sendMediaGroup request.
+const MaxMediaGroupSize = 10
+
+// SendPhotoAlbum sends multiple photos as media group(s). Chunks by MaxMediaGroupSize (10).
+// Reads each item.Reader into memory so that on media group failure we can fall back to SendPhoto per image.
+func (s *Service) SendPhotoAlbum(ctx context.Context, items []ports.PhotoItem) error {
+	if s.bot == nil {
+		s.logger.Debug("Telegram not configured (missing token or chat_id), skipping SendPhotoAlbum")
+		return nil
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	chatID, ok := s.chatIDInt64()
+	if !ok {
+		return nil
+	}
+	// Read all into memory so fallback can resend (readers are one-shot).
+	var all []photoData
+	for i := range items {
+		data, err := io.ReadAll(items[i].Reader)
+		if err != nil {
+			return fmt.Errorf("telegram SendPhotoAlbum read item %d: %w", i, err)
+		}
+		name := items[i].Filename
+		if name == "" {
+			name = fmt.Sprintf("chart_%d.png", i)
+		}
+		all = append(all, photoData{caption: items[i].Caption, filename: name, data: data})
+	}
+	for start := 0; start < len(all); start += MaxMediaGroupSize {
+		end := start + MaxMediaGroupSize
+		if end > len(all) {
+			end = len(all)
+		}
+		chunk := all[start:end]
+		if err := s.sendMediaGroupChunk(chatID, chunk); err != nil {
+			// Library fails to unmarshal media group response (API returns array, lib expects single Message).
+			// When that happens, the album was actually sent; do not fall back or we send duplicates.
+			if isMediaGroupResponseUnmarshalError(err) {
+				s.logger.Debug("SendPhotoAlbum: media group sent (library unmarshal quirk ignored)")
+				continue
+			}
+			s.logger.Warn("SendPhotoAlbum: media group failed, falling back to individual SendPhoto", "error", err)
+			for i := range chunk {
+				if e := s.SendPhoto(ctx, chunk[i].caption, bytes.NewReader(chunk[i].data)); e != nil {
+					return fmt.Errorf("telegram SendPhoto fallback: %w", e)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// photoData holds in-memory image bytes for one album item (used for media group and fallback).
+type photoData struct {
+	caption  string
+	filename string
+	data     []byte
+}
+
+// isMediaGroupResponseUnmarshalError returns true when the error is the known go-telegram-bot-api
+// quirk: Send(mediaGroup) succeeds on the wire but the library fails to unmarshal the response
+// (API returns []Message, library expects Message). In that case the album was delivered.
+func isMediaGroupResponseUnmarshalError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "cannot unmarshal array into Go value of type") && strings.Contains(s, "Message")
+}
+
+// sendMediaGroupChunk sends one album of up to 10 photos. chunk contains already-read data.
+func (s *Service) sendMediaGroupChunk(chatID int64, chunk []photoData) error {
+	media := make([]interface{}, 0, len(chunk))
+	for i := range chunk {
+		inputMedia := tgbotapi.NewInputMediaPhoto(tgbotapi.FileBytes{Name: chunk[i].filename, Bytes: chunk[i].data})
+		inputMedia.Caption = chunk[i].caption
+		media = append(media, inputMedia)
+	}
+	cfg := tgbotapi.NewMediaGroup(chatID, media)
+	_, err := s.bot.Send(cfg)
+	if err != nil {
+		return fmt.Errorf("telegram SendMediaGroup: %w", err)
 	}
 	return nil
 }
